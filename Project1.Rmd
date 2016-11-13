@@ -1,0 +1,107 @@
+---
+title: 'Reproducible Research: Course Project 1'
+author: "hcam"
+date: "11/12/2016"
+output: html_document
+---
+
+## Loading/Prcessing Data
+
+Loading packages to process the dataset.
+
+```{r eval=TRUE, results='hide', message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(chron)
+```
+
+```{r eval = TRUE}
+setwd("/Users/hcam/Desktop/Data Sets/")
+activity <- read.csv("activity.csv", stringsAsFactors = FALSE)
+```
+
+## Mean Total Number of Steps Per Day
+
+```{r}
+steps <- activity %>%
+                group_by(date) %>%
+                filter(!is.na(steps)) %>%
+                summarise(total = sum(steps))
+head(steps)
+summary(steps)
+```
+
+We see the mean total number of steps per day is 10766 and median is 10765.
+
+### Setting up the histogram
+```{r}
+steps_hist <- ggplot(steps, aes(x=total))
+steps_hist + geom_histogram(fill = 'darkgreen', bins = 100)
+```
+ 
+
+## Average Daily Activity Pattern 
+
+We will remove the NA values from the dataset, group them by interval, and create a plot.
+```{r}
+interval <- activity %>%
+    group_by(interval) %>%
+    filter(!is.na(steps)) %>%
+    summarise(mean = mean(steps))
+
+ggplot(interval, aes(x = interval, y = mean)) +
+        geom_line(col = 'darkgreen') +
+        labs(title = "Mean Steps per Interval", x = "Interval", y = "Avg. Steps per Day")
+```
+
+```{r}
+interval[which.max(interval$mean),]
+```
+We see that interval 835 has the max average number of steps.
+
+## Imputing Missing Values
+```{r}
+summary(activity)
+```
+We see that there are 2304 NA values.  I chose replace the NA values with the mean of the remaining values.
+
+```{r}
+mean <- mean(activity$steps, na.rm = TRUE)
+
+activityNA <- activity
+activityNA$steps[which(is.na(activityNA$steps))] <- mean
+summary(activityNA)
+```
+
+```{r}
+stepsNA <- activityNA %>%
+    group_by(date) %>%
+    summarise(total = sum(steps))
+
+stepsNA_hist <- ggplot(stepsNA, aes(x=total))
+stepsNA_hist + geom_histogram(fill = 'darkgreen', bins = 100)
+summary(stepsNA)
+
+```
+
+## Weekdays vs Weekends
+
+We will make use of the chron package and the is.weekend function to differentiate weekday or weekend.
+
+```{r}
+type <- is.weekend(activityNA$date)
+activityNA$type <- ifelse (type == "TRUE", "weekend", "weekday")
+
+activityNA_type<- activityNA %>%
+   group_by(interval, type) %>%
+   summarise(mean = mean(steps))
+
+wkdy_plot <- ggplot(activityNA_type, aes(x =interval , y=mean, color=type)) +
+    geom_line() +
+    labs(title = "Avg Steps Weekend vs Weekday", x = "Interval", y = "Steps") +
+    facet_wrap(~type, ncol = 1, nrow=2)
+
+wkdy_plot
+```
+
+We can see from the two plots that there are differences in activity patterns for weekdays and weekends. The pattern for weekdays seem to peak earlier in the day and on weekends the steps remain constant throughout the day.
